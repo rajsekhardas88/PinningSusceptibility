@@ -1,0 +1,78 @@
+#basic System define
+dimension  3
+boundary p p p
+restart    20000000 restart.3dR10
+units lj  #all quantities are expressed in terms of Lennard Jones parameters
+
+atom_style	atomic
+
+#MD neighbor lists
+neighbor	0.3 bin
+neigh_modify	delay 4
+
+#simulation box
+lattice		fcc 0.81
+region		box block 0 13.5 0 13.5 0 13.5
+create_box	3 box 
+create_atoms	1 box #initial position
+set         	  type 1 type/fraction 2 0.48605 12391 
+set         	  type 1 type/fraction 3 0.07745 12393 
+#Atomic Mass
+
+mass		1 1.0 
+mass		2 1.0
+mass		3 1.0
+
+
+
+group 		small type 1
+group		medium type 2
+group		large  type 3
+group 		liq union large medium small
+
+# LJ potentials
+#===============
+
+pair_style 	table spline 100000
+pair_coeff 	3 3 largeLarge.table Large_Large
+pair_coeff 	1 3 smallLarge.table Small_Large
+pair_coeff 	1 1 smallSmall.table Small_Small
+pair_coeff 	1 2 smallMedium.table Small_Medium
+pair_coeff 	2 2 mediumMedium.table Medium_Medium
+pair_coeff 	2 3 mediumLarge.table Medium_Large
+
+compute	  	new liq temp
+#compute	  	1 all pressure 10.5
+print           "Seed: ${seed}"
+velocity        liq create 0.520 ${seed} temp new 
+
+#fix	     1 liq nve #integration --- force calculation
+#fix	     2 liq temp/rescale 200 1.000 1.000 0.02 1.0 #thermostat
+#fix 	     1 liq temp/berendsen 1.000 1.000 5.0
+#fix          1 liq nvt temp 1.000 1.000 0.1
+fix          1 liq npt temp 0.520 0.520 0.1 iso 20.291 20.291 10
+#fix_modify   2 temp new 
+
+# equilibration run
+timestep	0.005 #delta T
+thermo		2000000 #output
+thermo_modify	temp new 
+
+#run		17999305
+run	        79960535
+
+
+# production run
+reset_timestep 0
+thermo		2000000 #output
+thermo_modify	temp new 
+
+variable        f1 file tmp.txt
+#variable        s equal logfreq(100,4,10)
+variable        s equal next(f1)
+#dump            3 liq custom 1 dump.liq id type x y z vx vy vz
+dump            3 liq custom 1 dump.liq x y z type
+dump_modify     3 every v_s sort id
+
+#run		17999305
+run		   79960535
